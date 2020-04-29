@@ -1,0 +1,6 @@
+1.As per RSA Algorithm we know that the relationship between N, e, anddis
+d*e = 1 mod (p-1)(q-1).
+From the reference program we found that the value of d is assign to e. For balancing the equation I assign the value of e to d.
+2. As we can see that the cipher-text is looks like a BigInteger .
+3. So we directly convert this data to string and then apply the algorithm.
+4. After follow these process finally we got the original message that is “This is top secret” .
