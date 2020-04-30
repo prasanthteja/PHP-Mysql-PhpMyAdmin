@@ -1,0 +1,52 @@
+<mat-toolbar color="primary" style="height: 120px;">
+  <span [routerLink]="['/home']"
+    >Center for Innovation <br />in Teaching and Research</span
+  >
+  <span class="example-fill-remaining-space"></span>
+
+  <span
+    >WORKSHOPS & <br />
+    PROGRAMMING</span
+  >
+</mat-toolbar>
+<mat-sidenav-container class="example-container">
+  <mat-sidenav mode="side" opened class="sidenav"
+    ><mat-list>
+      <mat-toolbar>
+        <span>Workshops</span>
+      </mat-toolbar>
+      <mat-list-item [routerLink]="['/workshop']">Add A Workshop</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Update A Workshop</mat-list-item>
+      <mat-toolbar>
+        <span>User Management</span>
+      </mat-toolbar>
+      <mat-list-item>Add A User</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Update Users</mat-list-item>
+      <mat-toolbar>
+        <span>Personal Workshops</span>
+      </mat-toolbar>
+      <mat-list-item>My Workshops</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>My History</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Print A Confirmation Letter</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Print Workshop Attenders</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-toolbar>
+        <span>Misc. Functions</span>
+      </mat-toolbar>
+      <mat-list-item>Statistics</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Statistics By College</mat-list-item>
+      <mat-divider></mat-divider
+      ><mat-list-item>Statistics By Month</mat-list-item>
+      <mat-list-item>Back To All Workshops</mat-list-item>
+      <mat-divider></mat-divider>
+      <mat-list-item>Logout</mat-list-item>
+      <mat-divider></mat-divider> </mat-list
+  ></mat-sidenav>
+  <mat-sidenav-content><router-outlet></router-outlet></mat-sidenav-content>
+</mat-sidenav-container>
