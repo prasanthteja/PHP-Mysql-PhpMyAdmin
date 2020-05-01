@@ -1,0 +1,255 @@
+<?php
+
+	// This file serves 2 purposes
+	//	1. Send a reminder to all people registered for a workshop 2 days before the event
+	// 	2. Send all partcipants a link to evaluate the workshop they attended the previous day
+	
+
+	//EMAIL REMINDER
+	require_once('/home/mifdo/.php_select_connect.sphp');
+
+	$connection = dbConnect();
+	mysql_select_db("workshops",$connection);
+
+	$getWSDetails = mysql_query("SELECT
+									id,
+									title,
+									DATE_FORMAT(date, '%M %d, %Y'),
+									DATE_FORMAT(date,'%Y%m%d') as d2,
+									TIME_FORMAT(startTime, '%l:%i %p'),
+									TIME_FORMAT(startTime, '%H%i%s') as st2,
+									TIME_FORMAT(endTime, '%l:%i %p'),
+									TIME_FORMAT(endTime, '%H%i%s') as et2,
+									location,
+									instructor_id,
+									description
+								FROM
+									workshops
+								WHERE
+									DAYOFYEAR(date) = (DAYOFYEAR(NOW())+2)
+								AND 
+									YEAR(date) = YEAR(NOW())		
+								AND
+									cancelled = 'false'
+								",$connection) or die (mysql_error());
+					
+	if(mysql_num_rows($getWSDetails) > 0) {
+
+		while(list($id,$tit,$d1,$d2,$st1,$st2,$et1,$et2,$loc,$ins,$desc) = mysql_fetch_array($getWSDetails)) {
+			$startDate = $d2."T".$st2;
+			$endDate = $d2."T".$et2;
+			$date = date("Ymd");
+			$time = date("His");
+			$today = $date."T".$time."Z";
+			//$desc = wordwrap($desc,70);		
+
+			$getRegs = mysql_query("SELECT
+										uid
+									FROM
+										registration_list
+									WHERE
+										ws_id = '21'
+									",$connection) or die (mysql_error());
+
+			if(mysql_num_rows($getRegs) > 0) {
+
+				$to = "";
+				while(list($uid) = mysql_fetch_array($getRegs)) {
+
+					$getEmail = mysql_query("	SELECT
+													fName,
+													lName,
+													email
+												FROM
+													users
+												WHERE
+													id = '$uid'
+												",$connection) or die (mysql_error());
+
+					if(mysql_num_rows($getEmail) > 0) {
+
+						list($insFName,$insLName,$email) = mysql_fetch_array($getEmail);
+
+						$to .= "r-runquist@wiu.edu";
+					}
+				}
+				$subject = "Workshop Reminder";
+				$from = "CITR@wiu.edu";
+				$calUID = $ins . "_" . $id;
+				$msg =
+'--fjsj4jnvx84'."\r\n".
+'Content-Type: text/plain; charset=utf-8'."\r\n".
+'Content-Transfer-Encoding: 7bit'."\r\n\r\n".
+'This is a friendly reminder that you are registered for the '.$tit.' workshop on '.$d1.' from '.$st1.' -'.$et1.' in '.$loc."\r\n".
+'If you have any questions concerning your registration, please feel free to contact us.'."\r\n" .
+'CITR Phone: 298-2434'."\r\n" .
+'Email: CITR@wiu.edu'."\r\n" .
+"\r\n" .
+'--fjsj4jnvx84'."\r\n".
+'Content-Type: text/html; charset=utf-8'."\r\n".
+'Content-Transfer-Encoding: quoted-printable'."\r\n\r\n";
+
+
+
+				$msg = wordwrap($msg,70);
+	
+$msg2 = "<html>
+<body>
+Greetings,
+<p>
+This is a friendly reminder that you are registered for the <strong>$tit</strong>
+workshop, on $d1 from <strong>$st1 - $et1</strong>, in <strong>$loc</strong>.
+</p>
+
+<p>
+If you have any questions concerning your registration, please feel  
+free to contact us.
+</p>
+<p>
+CITR
+Phone: 298-2434
+</p>
+<p>
+Email: CITR@wiu.edu</p>
+</p>
+
+</body>
+</html>\r\n\r\n".
+'--fjsj4jnvx84'."\r\n".
+'Content-Type: text/calendar; charset=utf-8; method=REQUEST; name=workshop.ics'."\r\n".
+'Content-Transfer-Encoding: 7bit'."\r\n\r\n";
+
+$msg2 .= <<<EOM
+BEGIN:VCALENDAR
+PRODID:-//WIU//Workshops//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+EVENT-TITLE:$tit
+DTSTART;TZID=America/Chicago:$startDate
+DTEND;TZID=America/Chicago:$endDate
+DTSTAMP:$today
+ORGANIZER;CN=$insFName $insLName:MAILTO:CITR@wiu.edu
+UID:$calUID
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;
+ RSVP=FALSE:MAILTO:$email
+CLASS:PRIVATE
+CREATED:$today
+DESCRIPTION:$desc
+LAST-MODIFIED:$today
+LOCATION:$loc
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:$tit
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
+--fjsj4jnvx84--
+EOM;
+				
+				$message = $msg.$msg2;
+				$headers = 'From:CITR@wiu.edu' . "\r\n" .'CC:CITR@wiu.edu'. "\r\n" .
+		  		'MIME-Version: 1.0'."\r\n".
+		  		'Content-Type: multipart/alternative; boundary=fjsj4jnvx84';
+
+				mail($to,$subject,$message,$headers);	
+				
+				mysql_query("INSERT into 
+								email_log 
+							VALUES('$uid', NOW(), '$message')
+							",$connection) or die(mysql_error());
+			}
+		}			
+	}
+
+	// EMAIL EVALUATION LINK
+/*	
+	$getWorkshops = mysql_query("	SELECT
+										id,
+										title,
+										DATE_FORMAT(date,'%M %D')
+									FROM
+										workshops
+									WHERE
+										date = (CURRENT_DATE() - 2)
+									AND
+										cancelled = 'false'
+									AND
+										shouldEvaluate = '1'
+									",$connection) or die (mysql_error());
+	
+	if(mysql_num_rows($getWorkshops) > 0) {
+		
+		while(list($ws_id,$title,$date) = mysql_fetch_array($getWorkshops)) {
+			
+			$subject = "CITR Workshop Evaluation";
+			
+			$getRegistrants = mysql_query("	SELECT
+												fName,
+												lName,
+												email
+											FROM
+												users
+											LEFT JOIN
+												registration_list
+											ON
+												users.id = registration_list.uid
+											WHERE
+												registration_list.ws_id = '$ws_id'
+											AND
+												registration_list.attended = 'true'
+											",$connection) or die (mysql_error());
+												
+			if(mysql_num_rows($getRegistrants) > 0) {
+				
+				while(list($fname,$lname,$userEmail) = mysql_fetch_array($getRegistrants)) {
+					
+$msg =
+'--fjsj4jnvx8433jllsoqqsz3'."\r\n".
+'Content-Type: text/plain; charset=utf-8'."\r\n".
+'Content-Transfer-Encoding: 8bit'."\r\n\r\n".
+$fname .'-
+
+Thank you for attending the CITR workshop entitled "'.$title.'" held on '.$date.'. The CITR staff hopes
+you enjoyed the program and found it beneficial.
+
+To help us improve our offerings, please take a moment to complete a brief survey. The survey can be accessed by following the link below. You
+will be asked for you ECOM login and password but all submissions are anonymous and confidential.
+
+Thank you again for your continued support of CITR
+
+Click to complete the survey.
+https://www.wiu.edu/citr/workshops/?action=evaluate&w='.$ws_id.
+"\r\n" .
+'--fjsj4jnvx8433jllsoqqsz3'."\r\n".
+'Content-Type: text/html; charset=utf-8'."\r\n".
+'Content-Transfer-Encoding: quoted-printable'."\r\n\r\n";
+
+	$msg = wordwrap($msg,70);
+
+$msg2 = '<html><body><p>'.$fname.'-</p><p>Thank you for attending the CITR workshop entitled "'.$title.'" held on '.$date.'. The CITR staff hopes you enjoyed the program and found it beneficial.</p>
+
+<p>To help us improve our offerings, please take a moment to complete a brief survey. The survey can be accessed by following the link below. You
+will be asked for you ECOM login and password but all submissions are anonymous and confidential.</p>
+
+<p>Thank you again for your continued support of CITR</p>
+<p><a href="https://www.wiu.edu/citr/workshops/?action=evaluate&w&#61;'.$ws_id.'">Click to Complete the Survey</a></p>
+</body>
+</html>'."\r\n\r\n";
+
+
+					$complete = $msg . $msg2;
+				
+					$headers = 	'From: CITR@wiu.edu'."\r\n". 
+								'MIME-Version: 1.0'."\r\n".
+								'Content-Type: multipart/alternative; boundary=fjsj4jnvx8433jllsoqqsz3';
+								
+					mail($userEmail,$subject,$complete,$headers);
+				}
+			}
+		}
+	}
+	*/	
+	mysql_close();
+?>

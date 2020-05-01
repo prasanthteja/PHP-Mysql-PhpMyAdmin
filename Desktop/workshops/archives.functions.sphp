@@ -1,0 +1,200 @@
+<?php
+
+//*******************************************************************
+//	Author:		Jared Dellitt
+//	Date:		10/18/2007
+//  Purpose:	Archives functions for workshop system.
+//*******************************************************************
+
+
+	//require_once('/www/include/php/framework/objects/form.class.php');
+
+	
+	function addArchive() {
+
+		$msg = "<p>Give the archive a relevant title (ie Fall_20XX) and select the start date and end date to archive.  NOTE: All of the workshops in the current workshops directory will be removed.  Be sure to use the calendar buttons to the right of the date fields.  Failure to do so will result in errors during the archiving process.</p>";
+		
+		$form = new Form("addArchive");
+		$form->addFieldSet(new FieldSet("Archive Details"));
+			$title = new TextInput("Archive Title:","","title");
+			$title->addValidation("req");
+		$form->addField($title);
+			$startDate = new DateInput("Start Date:","","sDate","1");
+			$startDate->addValidation("req");
+		$form->addField($startDate);
+			$endDate = new DateInput("End Date:","","eDate","2");
+			$endDate->addValidation("req");
+		$form->addField($endDate);
+		$form->addField(new SubmitButton("Add Archive"));
+		
+		$content = array($msg,$form);
+		return array($content,"Add Archive");
+	}
+
+	function listArchives() {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+				
+		$getArchNames = mysql_query("SELECT
+										archName
+									FROM
+										archive_names
+									",$connection) or die (mysql_error());
+		
+		if(mysql_num_rows($getArchNames) > 0) {
+		
+			$list = "<h4>Archives List</h4>
+					<ul>";
+			while(list($name) = mysql_fetch_array($getArchNames)) {
+			
+				$urlName = urlencode($name);
+				$list .= "<li><a href=\"?action=showArchive&amp;arch=$urlName\">$name</a></li>";
+			}
+			$list .= "</ul>";
+		}
+		else {
+			$list = "<h4>No archives have been created.</h4>";
+		}
+		mysql_close();
+		return array($list,"Archives");
+	}
+	
+	function showArchive($name) {
+		
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+			
+		$name = urldecode($name);
+	
+		$getWS = mysql_query("	SELECT
+									id,
+									title,
+									DATE_FORMAT(date, '%M %d, %Y')
+								FROM
+									$name
+								ORDER BY
+									date DESC
+								",$connection) or die (mysql_error());
+
+		$nameURL = urlencode($name);
+		
+		if(mysql_num_rows($getWS) > 0) {
+			
+			$entities = new EntityList();
+			$entities->addAction("View Details","?action=details&amp;arch=$nameURL&amp;id=");	
+			$entities->addAction("Handouts", "?action=wsHandouts&amp;id=");
+
+
+			while(list($ws_id,$title,$date) = mysql_fetch_array($getWS)) {
+					
+				$entity = new EntityBlock();
+				$entity->setTitle("$title - $date");
+				$entity->setId($ws_id);
+	
+				$entities->addEntity($entity);
+			}// End while					
+			$list .= $entities->toString();
+			
+		}// End if
+		else
+			$list = "There are no workshops in this archive.";
+			
+		mysql_close($connection);
+		return array($list, "$name Workshops");			
+	}
+	
+	function processArchive() {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$title = $_POST['title'];
+		$sDate = $_POST['sDate'];
+		$eDate = $_POST['eDate'];
+		
+		$title = ereg_replace(" ","_",$title);
+                $title = ereg_replace("'","",$title);
+
+		if(empty($title) || empty($sDate) || empty($eDate)){
+			return array("bad","One or more of the required fields was not entered.",'?action=addArchive');
+		}
+		else {
+					
+			$checkName = mysql_query("	SELECT
+											archName
+										FROM
+											archive_names
+										WHERE
+											archName = '$title'
+										",$connection) or die (mysql_error());
+			
+			if(mysql_num_rows($checkName) > 0) {
+				return array("bad","There is already an archive with that name.","?action=addArchive");
+			}
+			
+			$createNew = mysql_query("CREATE TABLE `$title` (
+										`id` int(9) NOT NULL,
+										`title` varchar(200) NOT NULL default '',
+										`cat_id` int(9) NOT NULL default '0',
+										`date` datetime NOT NULL default '0000-00-00 00:00:00',
+										`startTime` time NOT NULL default '00:00:00',
+										`endTime` time NOT NULL default '00:00:00',
+										`location` varchar(100) NOT NULL default '',
+										`instructor_id` int(9) NOT NULL default '0',
+										`description` longtext,
+										`materials` longtext,
+										`seats` int(2) default '70',
+										`registration` varchar(10) NOT NULL default 'true',
+										`cancelled` varchar(5) default 'false',
+										`ts` timestamp(14) NOT NULL,
+										`instructor_id1` int(9) NOT NULL default '0',
+										`instructor_id2` int(9) NOT NULL default '0',
+										`instructor_id3` int(9) NOT NULL default '0',
+										`instructor_id4` int(9) NOT NULL default '0',
+										`instructor_id5` int(9) NOT NULL default '0'
+										)",$connection) or die (mysql_error());
+			
+			$insertName = mysql_query("INSERT INTO
+											archive_names
+										VALUES(
+									 		'$title')
+										",$connection) or die (mysql_error());
+			
+			$insertOld = mysql_query("	INSERT INTO
+											$title
+										SELECT 
+											*
+										FROM
+											workshops
+										WHERE
+											workshops.date >= '$sDate'
+										AND
+											workshops.date <= '$eDate'
+										",$connection) or die (mysql_error());
+			
+			if(mysql_affected_rows() > 0) {
+			
+				$deleteOld = mysql_query("	DELETE FROM
+												workshops
+											WHERE
+												workshops.date >= '$sDate'
+											AND
+												workshops.date <= '$eDate'
+											",$connection) or die (mysql_error());				
+				
+				$status = "good";
+				$msg = "The archive was successfully built.";
+				$goto = "?action=listWorkshops";
+			}
+			else {
+							
+				$status = "bad";
+				$msg = "An error occurred building the archive.  Please try again.";
+				$goto = "?action=addArchive";
+			}			
+		}
+		mysql_close();
+		return array($status,$msg,$goto);		
+	}
+?>

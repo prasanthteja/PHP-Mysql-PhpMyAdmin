@@ -1,0 +1,218 @@
+<?php
+
+// This file serves 2 purposes
+// 1. Send a reminder to all people registered for a workshop 2 days before the event
+//  2. Send all partcipants a link to evaluate the workshop they attended the previous day
+
+
+//EMAIL REMINDER
+
+if(isset($_SESSION['uid']) || isset($_SERVER['REMOTE_USER'])) {
+	echo "This script cannot be run by a user.<br />";
+	exit(1);
+}
+
+require_once('/home/mifdo/.php_admin_connect.sphp');
+
+$connection = dbConnect();
+mysql_select_db("workshops",$connection);
+
+$getWSDetails = mysql_query("SELECT
+									workshops.id,
+									title,
+									DATE_FORMAT(date, '%M %d, %Y'),
+									DATE_FORMAT(date,'%Y%m%d') as d2,
+									startTime,
+									endTime,
+									TIME_FORMAT(startTime, '%l:%i %p'),
+									TIME_FORMAT(startTime, '%H%i%s') as st2,
+									TIME_FORMAT(endTime, '%l:%i %p'),
+									TIME_FORMAT(endTime, '%H%i%s') as et2,
+									location,
+									instructor_id,
+									description,
+									fName,
+									lName,
+									email,
+									instructor_id1,
+									instructor_id2,
+									instructor_id3,
+									instructor_id4,
+									instructor_id5
+								FROM
+									workshops, users
+								WHERE
+									DAYOFYEAR(date) = (DAYOFYEAR(NOW())+1)
+								AND
+									YEAR(date) = YEAR(NOW())
+								AND
+									cancelled = 'false'
+								AND
+									workshops.instructor_id=users.id
+								",$connection) or die (mysql_error());
+
+if(mysql_num_rows($getWSDetails) > 0) {
+    // print_r($getWSDetails);
+	while(list($id,$tit,$d1,$d2,$st,$et,$st1,$st2,$et1,$et2,$loc,$ins,$desc,$insFName,$insLName,$insEmail,$ins_[1],$ins_[2],$ins_[3],$ins_[4],$ins_[5]) = mysql_fetch_array($getWSDetails)) {
+		$startDate = $d2."T".$st2;
+		$endDate = $d2."T".$et2;
+		$date = date("Ymd");
+		$time = date("His");
+		$today = $date."T".$time."Z";
+
+		if($st == '00:00:00' && $et == '00:00:00')
+			$time = "No Specific Timings";
+		else
+			$time = $st1." - ".$et1;
+
+		$titleDate = $tit." at ".$time;
+
+		//Added Oct 13, 2009
+
+		$detail = "Workshop: ".$tit."\\nDate: ".$d1. "\\nTime: ".$time. "\\nLocation: ".$loc."\\n\\n";
+		$note = "\\n NOTE: CITR sessions are not open to the general public.";
+
+		$desc= str_replace("\r", "\\n", $desc);
+		$desc= str_replace("\n", "\\n", $desc);
+
+		$desc = $detail.$desc.$note;
+
+		//Added Oct 13, 2009
+
+		$array = array();
+		$cnt = 0;
+
+		// add email address for other instructors
+		if($ins_[1]!=0 || $ins_[2]!=0 || $ins_[3]!=0 || $ins_[4]!=0 || $ins_[5]!=0) {
+			for($i=1;$i<6;$i++) {
+				$insEmail_ = mysql_query("SELECT
+												email
+											FROM
+												users
+											WHERE
+												id = '$ins_[$i]'
+											",$connection) or die ("Error: ".mysql_error());
+
+				if(mysql_num_rows($insEmail_) > 0) {
+					list($email_[$i]) = mysql_fetch_array($insEmail_);
+					$insEmail .= ", ".$email_[$i];
+				}
+			}
+		}
+		$getRegs = mysql_query("SELECT
+										uid
+									FROM
+										registration_list
+									WHERE
+										ws_id = '$id'
+									",$connection) or die (mysql_error());
+
+		if(mysql_num_rows($getRegs) > 0) {
+
+			$to = "";
+
+			while(list($uid) = mysql_fetch_array($getRegs)) {
+
+				$getEmail = mysql_query("	SELECT
+													fName,
+													lName,
+													email
+												FROM
+													users
+												WHERE
+													id = '$uid'
+												",$connection) or die (mysql_error());
+
+				if(mysql_num_rows($getEmail) > 0) {
+
+					list($FName,$LName,$email) = mysql_fetch_array($getEmail);
+
+					$to .= $email.",";
+					echo "$to";
+				}
+				$usr[$cnt] = $uid;   //for email_log..
+				$cnt++;
+			}
+			$subject = "Workshop Reminder";
+			$from = "CITR@wiu.edu";
+					
+			$calUID = $ins ;
+			for($i=1;$i<6;$i++) {
+				if(!empty($ins_[$i]))
+					$calUID .= ",".$ins_[$i];
+			}
+			$calUID .= "_" . $id;
+
+			
+
+				
+					$msg =	'This is a friendly reminder that you are registered for the '.$tit.' workshop on '.$d1.' from '.$time.' in '.$loc."\r\n".
+				'If you have any questions concerning your registration, please feel free to contact us.'."\r\n" .
+				'CITR Phone: 298-2434'."\r\n" .
+				'Email: CITR@wiu.edu'."\r\n" .
+				'NOTE: CITR sessions are not open to the general public.'
+							;
+							
+							
+								$msg = wordwrap($msg,70);
+
+
+			$msg2 = "<html>
+<body>
+Greetings,
+<p>
+This is a friendly reminder that you are registered for the <strong>$tit</strong>
+workshop, on $d1 from <strong>$time</strong>, in <strong>$loc</strong>.
+</p>
+
+<p>
+If you have any questions concerning your registration, please feel
+free to contact us.
+</p>
+<p>
+CITR
+Phone: 298-2434
+</p>
+<p>
+Email: CITR@wiu.edu</p>
+<p>NOTE: CITR sessions are not open to the general public. </p>
+</p>
+
+</body>
+</html>\r\n\r\n".
+				'--fjsj4jnvx84'."\r\n".
+				'Content-Type: text/calendar; charset=utf-8; method=REQUEST; name=workshop.ics'."\r\n".
+				'Content-Transfer-Encoding: 7bit'."\r\n\r\n";
+
+
+			$message =$msg2;
+
+			//$headers = 'From:CITR@wiu.edu' . "\r\n" .'CC:CITR@wiu.edu,'.$insEmail. "\r\n" .
+				/*$headers = 'From:CITR@wiu.edu' . "\r\n" .'CC:CITR@wiu.edu' . "\r\n" .
+				'MIME-Version: 1.0'."\r\n".
+				'Content-Type: text/html; boundary=fjsj4jnvx84';*/
+				$mid="b-uppathi@wiu.edu";
+
+				$headers = 'From:CITR@wiu.edu' . "\r\n" .
+				'MIME-Version: 1.0'."\r\n".
+				'Content-Type: text/html; boundary=fjsj4jnvx84';
+			//mail($to,$subject,$message,$headers);
+			mail($mid,$subject,$message,$headers);
+
+			$date = date("Y-m-d H:i:s");
+			$insertMsg = addslashes($msg);
+			//mail("N-Pradhan2@wiu.edu","test","test:$headers, <br> $date, <br>$message","nitiprad@gmail.com");
+            //mail("sc-devineni@wiu.edu",$subject,$message,$headers);
+			for($i=0;$i<sizeof($usr);$i++) {
+
+				mysql_query("INSERT into
+										email_log
+								VALUES('$usr[$i]', NOW(), '$insertMsg')
+								",$connection) or die(mysql_error());
+			}
+		}
+	}
+}
+
+mysql_close();
+?>

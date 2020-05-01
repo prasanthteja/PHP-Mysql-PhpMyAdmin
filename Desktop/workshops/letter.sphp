@@ -1,0 +1,122 @@
+<?php
+
+	require_once('/home/mifdo/.php_select_connect.sphp');
+	require_once('/www/include/php/framework/objects/table.class.php');
+	
+	$workshops = $_POST['workshops'];
+	$id = $_POST[id];
+
+	session_start();
+	
+	$connection = dbConnect();
+	mysql_select_db("workshops");
+	
+	if(!empty($id))
+	$_SESSION['uid']=$id;
+
+	if(!empty($workshops)) {
+
+		$page = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+	<head>
+		<title>Confirmation of Workshop Attendance</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+		<style type="text/css" media="all">
+			table {
+				border: 1px solid #000;
+				font-family: sans-serif;
+				font-size:10pt;
+			}
+		</style>
+	</head>
+	<body>
+		<div style="width: 800px; margin:auto; font-family:sans-serif; font-size:10pt;">
+			<div id="header" style="width:800px; text-align:center; float:left; clear:both; font-family:sans-serif; font-size: 12pt; margin: auto;">
+				<img src="http://www.wiu.edu/citr/images/citr_admin.gif"/>
+				<h4 style="border-top-color: #000; border-top-style: double; margin-top:0px; margin-bottom:5px; padding-top: 4px;">Confirmation of Workshop Attendance</h4>
+			</div>
+			'.date("n/j/Y").'<br />
+			Dear ';		
+
+		$getName = mysql_query("SELECT
+									fName,
+									lName
+								FROM
+									users
+								WHERE
+									id = '".$_SESSION['uid']."'
+								",$connection) or die (mysql_error());
+				
+		if(mysql_num_rows($getName) === 1)
+			list($fname,$lname) = mysql_fetch_array($getName);
+			
+		$page .= '<strong>'.$fname.' '.$lname.'</strong>,<br /> 
+
+<div style="padding: 20px; font-family:sans-serif font-size:10pt;">
+This letter certifies that you attended the following workshop(s) and/or program(s):<br /><br />
+';
+
+		$table = new Table("workshops");
+		$headers = array("Title","Date","Location","Instructor");
+		$table->setHeaders($headers);
+		
+		foreach($workshops as $wsid) {
+
+			$getInfo = mysql_query("SELECT
+										workshops.id,
+										workshops.title,
+										DATE_FORMAT(workshops.date, '%c/%e/%Y'),		
+										workshops.location,
+										workshops.instructor_id,
+										registration_list.attended
+									FROM
+										workshops
+									INNER JOIN 
+										registration_list ON workshops.id = registration_list.ws_id
+									WHERE
+										registration_list.uid = '".$_SESSION['uid']."'
+									AND 
+										registration_list.ws_id = '$wsid'
+									",$connection) or die (mysql_error());
+									
+			if(mysql_num_rows($getInfo) === 1) {
+				
+				list($id,$title,$date,$location,$ins,$attended) = mysql_fetch_array($getInfo);
+
+				$getInst = mysql_query("SELECT
+											fName,
+											lName
+										FROM
+											users
+										WHERE
+											id = '$ins'
+										",$connection) or die (mysql_error());
+										
+				if(mysql_num_rows($getInst) === 1)
+					list($insFName,$insLName) = mysql_fetch_array($getInst);
+														
+				if($attended == "true") {
+					$row = array($title,$date,$location,$insFName." ".$insLName);
+					$table->addRow($row);	
+				}
+			}	
+		}
+		$page .= $table->toString();
+		
+		$page .= '<br />
+				<p>Thank you for supporting the Center for Innovation in Teaching and Research by attending these workshops.</p>
+				<strong>The Staff of CITR</strong><br />
+			</div>
+			<div style="border-top-style: double; border-top-color: #000; padding: 5px; font-family:sans-serif; font-size:10pt; font-weight: bold">
+				If you have any questions, please feel free to contact us.<br />
+				CITR | Phone: (309) 298-2434 | Email: CITR@wiu.edu 
+			</div>
+		</div>
+	</body>
+</html>
+';
+		echo $page;
+	}
+	else
+		echo "NO WORKSHOPS";

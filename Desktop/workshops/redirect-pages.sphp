@@ -1,0 +1,82 @@
+<?php 
+//*******************************************************************
+//	Author:		Hari
+//	Date:		01/28/2018
+//  Purpose:	Page redirect functionality
+//*******************************************************************
+	$wsid = $_COOKIE["wsid"];
+
+	include('/www/CAS/phpcas/casauth.inc');
+
+	require_once('/www/include/php/framework/objects/admin.class.php');
+	require_once('/www/include/php/framework/objects/entityList.class.php');
+	require_once('/home/mifdo/.php_admin_connect.sphp');	
+		
+	// ** Need to remove this page in future for a proper Application structure.
+	
+	require("/home/mifdo/https-files/php_ldap_bind.inc");
+	$LDAP = ldap_connect("ldap.wiu.edu"); //ldap
+	$result = ldap_bind($LDAP,$BindDN,$BindPW);
+
+	//$caslogin provides user name for email formation
+	$myemail=$ $caslogin. '@wiu.edu';
+	
+	//select employees only.
+	$criteria = "(&(mail=$myemail)(objectclass=wiuEmployee))"; 
+
+	//for systems like Interview Archive, Code Sharing, to give access to Students, change //$criteria = “mail=”.$myemail;
+	$searchResult = ldap_search($LDAP, "ou=People, dc=wiu, dc=edu", $criteria);
+	$numEntries = ldap_count_entries($LDAP, $searchResult);
+	$info = ldap_get_entries($LDAP, $searchResult);
+	
+	if($numEntries>0) {
+
+		$GAArray = array("sg158", "ac183", "nmn108", "kg113", "vd105", "scd104", "rjh132", "murlr");
+		$uid=$info[0]["uid"][0]; //ecom from ldap
+		$_SESSION['ecom']=$uid;
+		
+		//Access to GA’s for Full Permissions
+		if( in_array($_SESSION['ecom'], $GAArray) ) {
+			$_SESSION['ecom'] = 'murlr';
+		}
+	}
+
+	if(!is_null($wsid)) {
+		header("Location: http://wiu.edu/CITR/workshops/index.sphp?action=showWS&id=".$wsid);
+	} else {
+		//Even if ecom User is not an employee, redirect to CITR Home page.
+		header("Location: http://wiu.edu/citr/workshops");
+	}
+
+
+// 	switch ($_GET['to']) {
+// 		case "citrHttpWS" :
+// 			redirectToCITRWorkShop($_GET['wsID']);
+// 			exit();
+// 		default:
+// 			redirectUrl('http://wiu.edu/citr/hari/citrdev-hari');
+// 			exit();
+// 	}
+
+// // Manual redirection of Page to workshop selected page
+// function redirectToCITRWorkShop($workshopID) {
+// 	if($workshopID) {
+// 		redirectUrl("http://wiu.edu/citr/workshops/?action=showWS&id=".$workshopID);
+// 	} else {
+// 		redirectUrl("http://wiu.edu/citr/");
+// 	}
+// }
+
+// // Helper function to do redirectUrl by validating it
+// function redirectUrl($url) {
+// 	if(isValidUrl($url)) {
+// 		return header("Location: http://wiu.edu/citr/workshops");
+// 	} else {
+// 		return header("Location: https://wiu.edu");
+// 	}
+// }
+
+// function isValidUrl($url) {
+// 	return filter_var($url, FILTER_VALIDATE_URL);
+// }
+?>

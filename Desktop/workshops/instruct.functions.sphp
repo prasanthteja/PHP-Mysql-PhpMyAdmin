@@ -1,0 +1,1187 @@
+<?php
+
+//*******************************************************************
+//	Author:		Jared Dellitt
+//	Date:		10/11/2007
+//  Purpose:	Instructor functions for workshop system.
+//*******************************************************************
+
+	function instructContent() {
+	
+		switch($_GET['action']) {
+		
+			//User Functions
+			case "register":
+				return array(registerForWorkshop($_GET['id']), 'Results');
+			case "showChoice":
+				return array(showChoice(),"Select Workshops");
+			case "myWorkshops":
+				return myWorkshops();
+			case "oldWS":
+				return oldWorkshops();
+			case "details":
+				return details($_GET['id']);
+			case "wsHandouts":
+				return myHandouts($_GET['id']);
+			case "viewHandout":
+				return viewMyHandout($_GET['id']);
+			case "unregister":
+				return array(unregister($_GET['id']),'Results');
+			case "viewHistory":
+				return history();
+			case "logout":
+				return logout();
+			case "evaluate":
+				return evaluationForm();
+			case "myEvaluations":
+				return array(myEvaluations(),"Evaluations of My Workshops");							
+			
+			//Instructor Functions
+			case "insWorkshops":
+				return listInsWorkshops();
+			case "wsEvaluations":
+				return array(showInsEvaluations($_GET['id']),"Workshop Evaluations");
+			
+			case "handouts":
+				return listHandouts($_GET['id']);
+			case "addHandout":
+				return handoutForm($_GET['id']);
+			case "removeHandout":
+				return array(removeHandout($_GET['id']),'Results');
+			case "viewHandout":
+				return viewHandout($_GET['id']);		
+			case "registrants":
+				return registrants($_GET['id']);
+			case "showLetterDates":
+				return letterDates();
+			case "doInvite" :
+				return sendInvitation();
+			case "wsInvitation" :
+				return myInvitation($_GET['id']);
+			case "redirectUrl":
+			    include_once('redirect-pages.sphp');
+			    break;
+			default:
+				return listInsWorkshops();
+		}
+	}
+
+	function instructProcess() {
+
+		switch($_POST['Submit']) {
+		
+			case "Upload Handout":
+				return processHandout();
+				
+			case "Submit Attendance":
+				return processAttendance($_POST['id']);
+			case "Get Programs":
+				return processLetterPrograms();
+			case "Invite" :
+				return validateInvitation();
+		}
+	}
+
+	//********************************
+	//			WORKSHOPS
+	//********************************
+	function showChoice() {
+	
+		$content = "<h4>Select which workshops you would like to view:</h4>
+						<ul>
+							<li><a href=\"?action=myWorkshops\">Workshops Registered For</a></li>
+							<li><a href=\"?action=insWorkshops\">Workshops Instructing</a></li>
+						</ul>";
+		
+		return $content;
+	}
+
+	function listInsWorkshops() {
+		
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$uid = $_SESSION['uid'];
+
+                $getName = mysql_query("SELECT
+                                                fName
+                                        FROM
+                                                users
+                                        WHERE
+                                                id = '$uid'
+                                        ",$connection) or die (mysql_error());
+
+                list($userName) = mysql_fetch_array($getName);
+				
+		$oldWs = "<h4><a href=\"?action=oldWS\"><< Older Events</a></h4>";		
+
+		$ws_query = "SELECT
+						id,
+						title,
+						DATE_FORMAT(date, '%M %d, %Y'),
+						startTime,
+						endTime,
+						TIME_FORMAT(startTime, '%l:%i %p'),
+						TIME_FORMAT(endTime, '%l:%i %p'),						
+						UNIX_TIMESTAMP(date),
+						location
+					FROM
+						workshops
+					WHERE
+						(instructor_id = '$uid'
+						OR
+						instructor_id1 = '$uid'
+						OR
+						instructor_id2 = '$uid'
+						OR
+						instructor_id3 = '$uid'
+						OR
+						instructor_id4 = '$uid'
+						OR
+						instructor_id5 = '$uid')
+					AND
+						cancelled = 'false'
+					AND
+						date >= CURRENT_DATE()
+					ORDER BY
+						date;
+					";
+		
+		$getWS = mysql_query($ws_query,$connection) or die (mysql_error());
+					
+		if(mysql_num_rows($getWS) > 0) {
+		
+			$entities = new EntityList();
+//			$entities->setEdit("?action=editWorkshop&amp;id=");
+			$entities->addAction("Handouts", "?action=handouts&amp;id=");
+			$entities->addAction("Registrants", "?action=registrants&amp;id=");
+			$entities->addAction("Cancel","?action=cancelWorkshop&amp;id=","Are you sure you wish to cancel this workshop?  An email will be sent to all of the registrants notifying them of the update.");
+			$entities->setRemove("?action=removeWorkshop&amp;id=","Are you sure you wish to REMOVE this workshop?  NOTE:  This will delete all handouts and remove it from any registrants participation list.");
+	
+			while (list($id,$title,$date,$st,$et,$sTime,$eTime,$ts,$loc) = mysql_fetch_array($getWS)) {
+			
+				$getRegs = mysql_query("SELECT
+											COUNT(*)
+										FROM
+											registration_list
+										WHERE
+											ws_id = '$id'
+										",$connection) or die (mysql_error());
+
+				list($numRegs) = mysql_fetch_array($getRegs);
+
+				$disable = false;
+
+				$today_ts = strtotime(date("Y-m-d"));
+
+				if($ts <= $today_ts && $numRegs > 0)
+					$disable = true;
+
+				$disableCancel = false;
+				if($ts < $today_ts)									
+					$disableCancel = true;
+				
+				if($st=='00:00:00' && $et='00:00:00')
+					$time = "No Specific Timings";
+				else
+					$time = $sTime." - ".$eTime;
+					
+				$entity = new EntityBlock();
+				$entity->setTitle("$title - $date");
+				$entity->setId($id);
+				$entity->addDetail("<ul><li><strong>Time:</strong> $time</li></ul>");
+				$entity->addDetail("<ul><li><strong>Location:</strong> $loc</li></ul>");
+				$entity->addDetail("<ul><li><strong>Number of Registrants:</strong> $numRegs</li></ul>");
+				
+				//NORMALLY WOULD BE $disable and $disableCancel instead of 'true' here...
+				$entity->disableAction("Remove",true);
+				$entity->disableAction("Cancel",true);
+
+				if($disable)
+					$entity->addDetail("This workshop cannot be removed because users have previously registered for the workshop.");
+	
+				$entities->addEntity($entity);
+			}
+			$list .= $oldWs.$entities->toString();
+		}
+		else
+			$list = "You have no workshops currently entered.";
+	
+		mysql_close($connection);
+		return array($list,"Welcome $userName");			
+	}
+	
+	function oldWorkshops() {
+		
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$oldWs = "<h4><a href=\"?action=listWorkshops\">>> Newer Events</a></h4>";
+		$uid = $_SESSION['uid'];
+		$ws_query = "SELECT
+						id,
+						title,
+						DATE_FORMAT(date, '%M %d, %Y'),
+						startTime,
+						endTime,
+						TIME_FORMAT(startTime, '%l:%i %p'),
+						TIME_FORMAT(endTime, '%l:%i %p'),						
+						UNIX_TIMESTAMP(date),
+						location
+					FROM
+						workshops
+					WHERE
+						(instructor_id = '$uid'
+						OR
+						instructor_id1 = '$uid'
+						OR
+						instructor_id2 = '$uid'
+						OR
+						instructor_id3 = '$uid'
+						OR
+						instructor_id4 = '$uid'
+						OR
+						instructor_id5 = '$uid')
+					AND
+						cancelled = 'false'
+					AND
+						date < CURRENT_DATE();
+					";
+
+
+					
+		/*if(is_numeric($catID)) {
+			$ws_query .= "AND
+							cat_id = '$catID'
+						ORDER BY
+							date DESC
+						LIMIT
+							20";
+							
+			$getCatName = mysql_query("	SELECT
+											category
+										FROM
+											categories
+										WHERE
+											id = '$catID'
+										",$connection) or die (mysql_error());
+										
+			if(mysql_num_rows($getCatName) > 0)
+				list($cat) = mysql_fetch_array($getCatName);
+		}
+		else {
+			$ws_query .= "	ORDER BY
+								date DESC
+								";
+			$cat = "All";
+		}*/
+		
+		$getWS = mysql_query($ws_query,$connection) or die (mysql_error());
+					
+		if(mysql_num_rows($getWS) > 0) {
+		
+			$entities = new EntityList();
+			$entities->addAction("View Details","?action=details&amp;id=");	
+			$entities->addAction("Handouts", "?action=handouts&amp;id=");
+			$entities->addAction("Registrants", "?action=registrants&amp;id=");
+			$entities->addAction("Email Registrants","?action=emailRegistrants&amp;id=");
+			$entities->addAction("Evaluations", "?action=wsEvaluations&amp;id=");
+			$entities->setRemove("?action=removeWorkshop&amp;id=","Are you sure you wish to REMOVE this workshop?  NOTE:  This will delete all handouts and send a message to any registered users.");
+			$entities->addAction("Duplicate", "?action=duplicateWorkshop&amp;id=");
+			
+			while (list($id,$title,$date,$sTime,$eTime,$tf1,$tf2,$ts,$loc,$insID,$s_eval,$ins_[1],$ins_[2],$ins_[3],$ins_[4],$ins_[5]) = mysql_fetch_array($getWS)) {
+				$insID = $uid;
+				$insName = mysql_query("SELECT
+											fName,
+											lName
+										FROM
+											users
+										WHERE
+											id = '$insID'
+										",$connection) or die (mysql_error());
+							
+				if(mysql_num_rows($insName) > 0)
+					list($fName,$lName) = mysql_fetch_array($insName);
+				
+				if($ins_[5]!=0 || $ins_[1]!=0 || $ins_[2]!=0 || $ins_[3]!=0 || $ins_[4]!=0) {
+					for($i=1;$i<6;$i++) {
+						$insName_ = mysql_query("SELECT
+													fName,
+													lName
+												FROM
+													users
+												WHERE
+													id = '$ins_[$i]'
+												",$connection) or die ("Error: ".mysql_error());
+									
+						if(mysql_num_rows($insName_) > 0)
+							list($fName_[$i],$lName_[$i]) = mysql_fetch_array($insName_);
+					}
+				}
+				$getRegs = mysql_query("SELECT
+											COUNT(*)
+										FROM
+											registration_list
+										WHERE
+											ws_id = '$id'
+										",$connection) or die (mysql_error());
+
+				list($numRegs) = mysql_fetch_array($getRegs);
+				$getAttendees = mysql_query("SELECT
+											COUNT(*)
+										FROM
+											registration_list
+										WHERE
+											ws_id = '$id'
+										AND 
+											attended = 'true'
+										",$connection) or die (mysql_error());
+
+				list($numAttendees) = mysql_fetch_array($getAttendees);
+				
+				//added by Roger to retrieve the notes
+				$getnotes = mysql_query("SELECT
+											notes
+										FROM
+											ws_notes
+										WHERE
+											ws_id = '$id'
+										",$connection) or die (mysql_error());
+
+				list($notes) = mysql_fetch_array($getnotes);
+				
+				//added by Roger - END
+				
+				$disable = false;
+				$today_ts = strtotime(date("Y-m-d"));
+
+				if($ts <= $today_ts && $numRegs > 0)
+					$disable = true;
+				
+				$disableEvals = true;
+				if($s_eval == "1") {
+
+					$countEvals = mysql_query("	SELECT
+													COUNT(*)
+												FROM
+													registration_list
+												WHERE
+													ws_id = '$id'
+												AND
+													evaluated = '1'
+											",$connection) or die (mysql_error());
+											
+					if(mysql_num_rows($countEvals) > 0) {
+						list($numEvals) = mysql_fetch_array($countEvals);
+						
+						if($numEvals > 0) {
+							$disableEvals = false;
+						}
+					}				
+				}
+
+				$entity = new EntityBlock();
+				$entity->setTitle("$title - $date");
+				$entity->addDetail("<ul><li><strong>Presenter:</strong> $fName $lName</li></ul>");
+				for($i=1;$i<6;$i++)  {
+					if($fName_[$i] != "" || $lName_[$i] != "")
+						$entity->addDetail("<ul><li><strong>Presenter:</strong> $fName_[$i] $lName_[$i]</li></ul>");
+					$fName_[$i] = "";
+					$lName_[$i] = "";
+				}
+				$entity->addDetail("<ul><li><strong>Time:</strong> $tf1 - $tf2</li></ul>");
+				$entity->addDetail("<ul><li><strong>Location:</strong> $loc</li></ul>");
+				$entity->addDetail("<ul><li><strong>Number of Registrants:</strong> $numRegs</li></ul>");
+				$entity->addDetail("<ul><li><strong>Number of Attendees:</strong> $numAttendees</li></ul>");
+				$entity->addDetail("<ul><li><strong>Notes:</strong> $notes</li></ul>");
+				$entity->setId($id);
+
+				$entity->disableAction("Remove",$disable);
+				$entity->disableAction("Evaluations",$disableEvals);
+
+				if($numRegs === 0) {
+					$entity->disableAction("Registrants",true);
+					$entity->disableAction("Email Registrants",true);
+				}
+				if($disable)
+					$entity->addDetail("This workshop cannot be removed because users have previously registered for the workshop.");
+
+				$entities->addEntity($entity);
+			}
+			$list .= $entities->toString();
+		}
+		else
+			$list = "There are no workshops currently entered.";
+
+		$content = $oldWs . $list;
+	
+		mysql_close($connection);
+		return array($content,"$cat Workshops");			
+	}	
+	
+	//********************************
+	//			HANDOUTS
+	//********************************	
+	function handoutForm($id) {
+
+		if(!checkUID($id)) {
+			return array("An error occurred.","Error");
+		}
+		
+		$form = new Form("handout");
+		$form->addFieldSet(new FieldSet("Upload Handout"));
+			$title = new TextInput("Title:","","title");
+			$title->addValidation("req");
+		$form->addField($title);
+			$file = new FileInput("File:","","file");
+			$file->addValidation("req");
+		$form->addField($file);
+		$form->addField(new HiddenInput("id",$id));
+		$form->addField(new SubmitButton("Upload Handout"));		
+		
+		return array($form,"Upload Handout");			
+	}
+	
+	function listHandouts($id) {
+
+		if(!checkUID($id)) {
+			return array("An error occurred.","Error");
+		}
+			
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$getHO = mysql_query("	SELECT
+									id,
+									title
+								FROM
+									handouts
+								WHERE
+									workshop_id = '$id'
+								ORDER BY
+									title
+								",$connection) or die (mysql_error());
+
+		if(mysql_num_rows($getHO) > 0) {
+		
+			$entities = new EntityList();
+			$entities->addAction("View", "?action=viewHandout&amp;id=");
+			$entities->setRemove("?action=removeHandout&amp;id=","Are you sure you wish to REMOVE this handout?");
+	
+			while (list($id2,$title) = mysql_fetch_array($getHO)) {
+			
+				$entity = new EntityBlock();
+				$entity->setTitle("$title");
+				$entity->setId($id2);
+	
+				$entities->addEntity($entity);
+			}
+			$list .= $entities->toString();
+		}
+		else
+			$list = "There are no handouts currently entered for this workshop.";
+	
+		$getCount = mysql_query("SELECT COUNT(*) FROM
+										handouts
+									WHERE
+										workshop_id = '$id'
+									",$connection) or die (mysql_error());
+									
+		list($count) = mysql_fetch_array($getCount);	
+	
+		if($count < 5)
+			$list .= "<h4><a href=\"?action=addHandout&amp;id=$id\">Add a Handout</a></h4>";
+		else
+			$list .= "<h4>The maximum number of handouts has been reached for this workshop.</h4>";
+		
+		mysql_close($connection);
+		return array($list,"Workshop Handouts");			
+	}
+	
+	function viewHandout($id) {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$getName = mysql_query("SELECT
+									name
+								FROM
+									handouts
+								WHERE
+									id = '$id'
+								",$connection) or die (mysql_error());
+								
+		list($name) = mysql_fetch_array($getName);
+		mysql_close($connection);
+		header("Location: https://www.wiu.edu/users/".getAcct()."/workshops/handouts/".$name);
+	}		
+	
+	function processHandout() {
+
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$title = mysql_real_escape_string($_POST['title']);
+		$id = mysql_real_escape_string($_POST['id']);
+		
+		$file_ref = "file";
+		$handoutLocation = '/home/'.getAcct().'/https/workshops/handouts/';
+		
+		$uploader = new DocumentUploader($file_ref,$handoutLocation);
+		$uploader->setDbConnection($connection);
+		
+		$date = date("dmyHs");
+		$name = $id ."_".$date;
+		
+		$uploader->overrideFilename($name);
+		
+		$uploader->setFinalQuery("	INSERT INTO
+										handouts
+									VALUES (
+										NULL,
+										'$id',
+										'$title',
+										'FILE_NAME_HERE'
+									)");
+									
+		$results = $uploader->upload();
+	
+		array_push($results, "?action=handouts&id=$id");
+	
+		return $results;		
+	}
+	
+	function removeHandout($id) {
+
+		if(!checkUID($id)) {
+			return array("bad","An error occurred.","?action=insWorkshops");
+		}	
+		
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$handoutLocation = '/home/'.getAcct().'/https/workshops/handouts/';
+		
+		$getName = mysql_query("SELECT
+									name
+								FROM
+									handouts
+								WHERE
+									id = '$id'
+								",$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getName) === 1) 
+			list($name) = mysql_fetch_array($getName);
+			
+		if(file_exists($handoutLocation . $name)) {
+			unlink($handoutLocation . $name);
+			$msg = "The handout file was successfully deleted.<br />";
+		}
+		else
+			$msg = "File could not be found.<br />";
+			
+		$remove = mysql_query("	DELETE FROM
+									handouts
+								WHERE
+									id = '$id'
+								",$connection) or die (mysql_error());
+								
+		if(mysql_affected_rows($connection) === 1) {
+			$status = "good";
+			$msg .= "The handout entry was successfully removed.";						
+		}
+		else {
+			$status = "bad";
+			$msg .= "The handout entry could not be removed.  Please try again.";
+		}
+		
+		mysql_close($connection);
+		
+		return array($status,$msg,'?action=updateWorkshops');
+		
+	}
+
+	function registrants($id) {
+
+		if(!checkUID($id)) {
+			return array("An error occurred.","Error");
+		}	
+		
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$getTitle = mysql_query("SELECT
+									title
+								FROM
+									workshops
+								WHERE
+									id = '$id'
+								",$connection) or die (mysql_error());
+								
+		list($title) = mysql_fetch_array($getTitle);
+		
+		$getRegs = mysql_query("SELECT
+									uid,
+									attended
+								FROM
+									registration_list
+								WHERE
+									ws_id = '$id'
+								",$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getRegs) > 0) {
+			
+			$form = new Form("ws_registrants");
+			$form->addField(new FieldSet("Registration List for $title"));
+				$regs = new CheckBoxes("Registrants:","registrants");
+				
+			while(list($uid,$att) = mysql_fetch_array($getRegs)) {
+				
+				$selected = false;
+				if($att === "true")
+					$selected = true;
+								
+				$getName = mysql_query("SELECT
+											fName,
+											lName
+										FROM
+											users
+										WHERE
+											id = '$uid'
+										ORDER BY
+											lName
+										",$connection) or die (mysql_error());
+										
+				if(mysql_num_rows($getName) > 0) {
+					list($fname,$lname) = mysql_fetch_array($getName);
+				}
+				$regs->addOption("$lname, $fname",$selected,$uid);
+			}
+			
+			$form->addField($regs);
+			$form->addField(new HiddenInput("id",$id));
+			
+			
+			$getNotes = mysql_query("	SELECT
+											notes
+										FROM
+											ws_notes
+										WHERE
+											ws_id = '$id'
+									",$connection) or die (mysql_error());
+									
+			if(mysql_num_rows($getNotes) > 0)
+				list($ws_notes) = mysql_fetch_array($getNotes);
+			
+				$notes = new TextArea("Notes:",$ws_notes,"notes");
+			$form->addField($notes);
+			$form->addField(new SubmitButton("Submit Attendance"));
+			
+			$select = '<h4>Select: <a href="#" onclick="checkTheBox(1); return false;">All</a>, <a href="#" onclick="checkTheBox(0); return false;">None</a></h4>';
+			mysql_close($connection);
+			$content = array($select,$form);
+			
+			return array($content,"Registration List");
+		}
+		else {
+			mysql_close($connection);
+			return array("Nobody has signed up for this workshop yet.","Registration List");								
+		}
+	}
+	
+	function myEvaluations() {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+			
+		$userID = $_SESSION['uid'];	
+			
+		$getInsName = mysql_query("	SELECT
+										fName,
+										lName
+									FROM
+										users
+									WHERE
+										id = '$userID'
+									",$connection) or die (mysql_error());
+									
+		if(mysql_num_rows($getInsName) === 1)
+			list($fname,$lname) = mysql_fetch_array($getInsName);			
+			
+		$getWS = mysql_query("	SELECT DISTINCT
+										workshops.id,
+										title,	
+										DATE_FORMAT(date, '%M %D, %Y')
+									FROM
+										workshops
+									INNER JOIN
+										evaluations
+									ON
+										workshops.id = evaluations.ws_id
+									WHERE
+										(workshops.instructor_id = '$userID'
+										OR
+										workshops.instructor_id1 = '$userID'
+										OR
+										workshops.instructor_id2 = '$userID'
+										OR
+										workshops.instructor_id3 = '$userID'
+										OR
+										workshops.instructor_id4 = '$userID'
+										OR
+										workshops.instructor_id5 = '$userID')
+									AND
+										should_evaluate = '1'
+									",$connection) or die (mysql_error());
+			
+		if(mysql_num_rows($getWS) > 0) {
+			
+			$individualWS = "";
+			
+			$met_sum = 0;
+			$con_sum = 0;
+			$org_sum = 0;
+			$man_sum = 0;
+			$need_sum = 0;
+			$know_sum = 0;
+			$sat_sum = 0;
+			$len_sum = 0;
+			
+			$count = 0;
+			
+			while(list($ws_id,$title,$date) = mysql_fetch_array($getWS)) {
+				
+				$individualWS .= "<li><a href=\"?action=wsEvaluations&id=$ws_id\">$title | $date</a></li>";
+				
+				$getEvals = mysql_query("	SELECT
+												COUNT(*)
+											FROM
+												evaluations
+											WHERE
+												ws_id = '$ws_id'
+											",$connection) or die (mysql_error());
+											
+				list($evalCount) = mysql_fetch_array($getEvals);
+				$count += $evalCount;
+				
+				if($evalCount > 0) {				
+				
+					$getInfo = mysql_query("SELECT
+												SUM(met_objectives),
+												SUM(presented_concepts),
+												SUM(seemed_organized),
+												SUM(managed_ws),
+												SUM(participant_needs),
+												SUM(knowledge),
+												SUM(satisfaction),
+												SUM(app_length)
+											FROM
+												evaluations
+											WHERE
+												ws_id = '$ws_id'
+											",$connection) or die (mysql_error());
+										
+					if(mysql_num_rows($getInfo) > 0) {
+									
+						list($met,$con,$org,$man,$need,$know,$sat,$len) = mysql_fetch_array($getInfo);
+						
+						$met_sum += $met;
+						$con_sum += $con;
+						$org_sum += $org;
+						$man_sum += $man;
+						$need_sum += $need;
+						$know_sum += $know;
+						$sat_sum += $sat;
+						$len_sum += $len;
+					}
+				}								
+			}
+			
+			$met_avg = round($met_sum/$count);
+			$con_avg = round($con_sum/$count);
+			$org_avg = round($org_sum/$count);
+			$man_avg = round($man_sum/$count);
+			$need_avg = round($need_sum/$count);
+			$know_avg = round($know_sum/$count);
+			$sat_avg = round($sat_sum/$count);
+			$len_avg = round($len_sum/$count);
+			
+			$len_word = "Correct";		
+				
+			if($len_avg > 2)
+				$len_word = "Too Long";
+			else if($len_avg < 2)
+				$len_word = "Too Short";
+			//echo "<br>met_avg: ".getEvaluationWording($met_avg);				
+			$content = "
+			<p><strong>Instructor:</strong> $fname $lname</p>
+			<p><strong>Number of Evaluations:</strong> $count</p>
+			<p>NOTE: All results are averaged based on the number of evaluations.</p>
+			<div class=\"normal entityBlock evaluations\">
+				<dl>
+					<dt>Overall</dt>
+					<li><strong>The workshop met all of its objectives.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($met_avg)." (".$met/$evalCount.")</li>
+						</ul>
+					<li><strong>The instructor presented the concepts well.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($con_avg)." (".$con/$evalCount.")</li>
+						</ul>
+					<li><strong>The instructor seemed organized and well prepared for this subject area.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($org_avg)." (".$org/$evalCount.")</li>
+						</ul>
+					<li><strong>The instructor managed the workshop well.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($man_avg)." (".$man/$evalCount.")</li>
+						</ul>
+					<li><strong>The instructor was responsive to participant needs.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($need_avg)." (".$need/$evalCount.")</li>
+						</ul>
+					<li><strong>My knowledge and skills increased as a result of this workshop.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($know_avg)." (".$know/$evalCount.")</li>
+						</ul>
+					<li><strong>Overall, I was satisfied with this workshop.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($sat_avg)." (".$sat/$evalCount.")</li>
+						</ul>
+					<li><strong>How appropriate was the length of this workshop?</strong></li>
+						<ul>
+							<li>$len_word (".$len/$evalCount.")</li>
+						</u>
+				</dl>
+			</div>
+			<div class=\"normal entityBlock\">
+				<dl>
+					<dt>Individual Workshop Evaluations</dt>
+						<ul>$individualWS
+						</ul>
+				</dl>
+			</div>
+			";
+												
+			return $content;					
+		}
+		else
+			return "<h4>Sorry, but you have no evaluations.</h4>";	
+	}
+	
+	function getEvaluationWording($number) {
+	
+		switch($number) {
+		
+			case 1:
+				return "Strongly Disagree";
+			case 2:
+				return "Disagree";
+			case 3:
+				return "Neutral";
+			case 4:
+				return "Agree";
+			case 5:
+				return "Strongly Agree";
+			//default:
+			//	return "test";
+		}
+	}	
+	
+	function processAttendance($id) {
+	
+		if(!checkUID($id)) {
+			return array("bad","An error occurred.","?action=registrants&id=$id");
+		}
+
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$list = $_POST['registrants'];
+		$notes = mysql_real_escape_string($_POST['notes']);
+		
+		$getAttendants = mysql_query("	SELECT
+											uid
+										FROM
+											registration_list
+										WHERE
+											ws_id = '$id'
+										",$connection) or die (mysql_error());		
+		
+		if(mysql_num_rows($getAttendants) > 0) {
+			
+			while(list($uid1) = mysql_fetch_array($getAttendants)) {
+			
+				$setAttendanceF = mysql_query("	UPDATE
+													registration_list
+												SET
+													attended = 'false'
+												WHERE
+													ws_id = '$id'
+												",$connection) or die (mysql_error());
+			}
+		}		
+		
+		foreach($list as $uid) {
+			
+			$setAttendanceT = mysql_query("	UPDATE
+												registration_list
+											SET
+												attended = 'true'
+											WHERE
+												uid = '$uid'
+											",$connection) or die (mysql_error());											
+		}			
+
+		$checkNotes = mysql_query("	SELECT
+										notes
+									FROM
+										ws_notes
+									WHERE
+										ws_id = '$id'
+									",$connection) or die (mysql_error());
+	
+		if(mysql_num_rows($checkNotes) > 0) {
+			
+			$updateNotes = mysql_query("UPDATE
+											ws_notes
+										SET
+											notes = '$notes'
+										WHERE
+											ws_id = '$id'
+										",$connection) or die (mysql_error());																	
+		}
+		else {							
+			$addNotes = mysql_query("INSERT INTO
+											ws_notes
+										VALUES(
+											'$id',
+											'$notes')
+									",$connection) or die (mysql_error());					
+		}
+		
+		mysql_close($connection);
+		
+		return array("good","The attendance list was successfully updated.","?action=registrants&id=$id");	
+	}
+		
+	//CHECK FOR CORRECT UID WHEN ALTERING WORKSHOPS
+	function checkUID($wsID) {
+
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+			
+		$checkUID = mysql_query("	SELECT
+										instructor_id
+									FROM
+										workshops
+									WHERE
+										id = '$wsID'
+									",$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($checkUID) > 0) {
+			list($uid) = mysql_fetch_array($checkUID);
+			
+			mysql_close();
+			if($uid === $_SESSION['uid'])
+				return true;
+			else
+				return false;
+		}
+		else {
+			mysql_close();
+			return false;
+		}
+	}
+	
+	
+	
+	
+	
+	function showInsEvaluations($id) {
+
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$getWS = mysql_query("	SELECT
+									title,
+									DATE_FORMAT(date, '%M %D, %Y'),
+									instructor_id
+								FROM
+									workshops
+								WHERE
+									id = '$id'
+								",$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getWS) === 1)
+			list($wsTitle,$wsDate,$ins_id) = mysql_fetch_array($getWS);
+		else
+			return "<h4>Sorry, but that workshop could not be found in the system.</h4>";		
+		
+		$getInsName = mysql_query("	SELECT
+										fName,
+										lName
+									FROM
+										users
+									WHERE
+										id = '$ins_id'
+									",$connection) or die (mysql_error());
+									
+		if(mysql_num_rows($getInsName) === 1)
+			list($fname,$lname) = mysql_fetch_array($getInsName);
+		
+		
+		$getCount = mysql_query("	SELECT
+										COUNT(*)
+									FROM
+										evaluations
+									WHERE
+										ws_id = '$id'
+									",$connection) or die (mysql_error());
+									
+		if(mysql_num_rows($getCount) > 0) {
+		
+			list($count) = mysql_fetch_array($getCount);
+			
+			$getInfo = mysql_query("SELECT
+										id,
+										met_objectives,
+										presented_concepts,
+										seemed_organized,
+										managed_ws,
+										participant_needs,
+										knowledge,
+										satisfaction,
+										app_length,
+										improvements,
+										comments,
+										add_ws
+									FROM
+										evaluations
+									WHERE
+										ws_id = '$id'
+									",$connection) or die (mysql_error());
+			
+			if(mysql_num_rows($getInfo) > 0) {
+			
+				$met_tot = 0;
+				$con_tot = 0;
+				$org_tot = 0;
+				$man_tot = 0;
+				$need_tot = 0;
+				$know_tot = 0;
+				$sat_tot = 0;
+				$len_tot = 0;			
+			
+				$improvements = "";
+				$comments = "";
+				$additional = "";
+				
+				while(list($id,$met,$con,$org,$man,$need,$know,$sat,$len,$imp,$com,$add) = mysql_fetch_array($getInfo)) {
+				
+					$met_tot += intval($met);
+					$con_tot += intval($con);
+					$org_tot += intval($org);
+					$man_tot += intval($man);
+					$need_tot += intval($need);
+					$know_tot += intval($know);
+					$sat_tot += intval($sat);
+					$len_tot += intval($len);
+					
+					if(!empty($imp) && $imp != "NULL")
+						$improvements .= "
+						<li>$imp</li>";
+					if(!empty($com) && $com != "NULL")
+						$comments .= "
+						<li>$com</li>";
+					if(!empty($add) && $add != "NULL")
+						$additional .= "
+						<li>$add</li>";
+				}
+				
+				$met_avg = round($met_tot/$count);
+				$con_avg = round($con_tot/$count);
+				$org_avg = round($org_tot/$count);
+				$man_avg = round($man_tot/$count);
+				$need_avg = round($need_tot/$count);
+				$know_avg = round($know_tot/$count);
+				$sat_avg = round($sat_tot/$count);
+				$len_avg = round($len_tot/$count);
+				
+				$len_word = "Correct";		
+						
+				if($len_avg > 2)
+					$len_word = "Too Long";
+				else if($len_avg < 2)
+					$len_word = "Too Short";
+			}
+			
+			$content = "
+			<h4>$wsTitle - $wsDate</h4>
+			<p><strong>Instructor:</strong> $fname $lname</p>
+			<p><strong>Number of Evaluations:</strong> $count</p>
+			<p>NOTE: All results are averaged based on the number of evaluations.</p>
+			<div class=\"normal entityBlock evaluations\">
+				<dl>
+					<li><strong>The workshop met all of its objectives.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($met_avg)." (".round(($met_tot/$count),2).")</li>
+						</ul>
+					<li><strong>The instructor presented the concepts well.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($con_avg)." (".round(($con_tot/$count),2).")</li>
+						</ul>
+					<li><strong>The instructor seemed organized and well prepared for this subject area.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($org_avg)." (".round(($org_tot/$count),2).")</li>
+						</ul>
+					<li><strong>The instructor managed the workshop well.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($man_avg)." (".round(($man_tot/$count),2).")</li>
+						</ul>
+					<li><strong>The instructor was responsive to participant needs.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($need_avg)." (".round(($need_tot/$count),2).")</li>
+						</ul>
+					<li><strong>My knowledge and skills increased as a result of this workshop.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($know_avg)." (".round(($know_tot/$count),2).")</li>
+						</ul>
+					<li><strong>Overall, I was satisfied with this workshop.</strong></li>
+						<ul>
+							<li>".getEvaluationWording($sat_avg)." (".round(($sat_tot/$count),2).")</li>
+						</ul>
+					<li><strong>How appropriate was the length of this workshop?</strong></li>
+						<ul>
+							<li>$len_word (".round(($len_tot/$count),2).")</li>
+						</u>
+				</dl>
+			</div>
+			<div class=\"normal entityBlock\">
+				<dl>
+					<dt>Improvements</dt>
+						<ul>$improvements
+						</ul>
+				</dl>
+			</div>
+			<div class=\"normal entityBlock\">
+				<dl>
+					<dt>Comments</dt>
+						<ul>$comments
+						</ul>
+				</dl>
+			</div>
+			<div class=\"normal entityBlock\">
+				<dl>
+					<dt>Interest in Additional Workshops</dt>
+						<ul>$additional
+						</ul>
+				</dl>
+			</div>			
+			";			
+
+			return $content;
+		}
+	}
+
+?>

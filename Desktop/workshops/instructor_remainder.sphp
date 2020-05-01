@@ -1,0 +1,150 @@
+<?php
+require_once ('/home/mifdo/.php_admin_connect.sphp');
+//include('/home/mifdo/include/php/utilities/sms_utilities.inc');
+$connection = dbConnect();
+mysql_select_db("workshops", $connection);
+
+/*
+ * Sends the registration list to instructors
+ */
+
+//**********************************************************
+$currentdate = date("Y-m-d");
+$nextdate = $currentdate;
+$nextdate = date('Y-m-d', strtotime('+1 day', strtotime($currentdate))) . ' 00:00:00';
+
+//echo 'Current: ' . $currentdate;
+//echo 'Next: ' . $nextdate;
+//$nextdate = '2015-10-06 00:00:00';
+
+$apps = mysql_query("SELECT `id`, `title`, `cat_id`, `date`, `startTime`, `endTime`, `location`, `instructor_id`, `instructor_id1`,`instructor_id2`,`instructor_id3`,`instructor_id4`,`instructor_id5`
+					 FROM workshops
+					 WHERE ((DATE = '$nextdate') AND (cancelled!='true')) ", $connection) or die(mysql_error());
+if (mysql_num_rows($apps) >= 1) 
+{
+	$subject = "Workshop System - Instructor Schedule Reminder";
+	//echo "Subject is $subject";
+	$list = "";
+    while (list($id, $title, $cat_id, $date, $startTime, $endTime, $location, $instructor_id,$ins_[1],$ins_[2],$ins_[3],$ins_[4],$ins_[5]) = mysql_fetch_array($apps)) 
+	{
+		//echo "After entering into while loop\n";
+        $getUserInfo = mysql_query("SELECT fName,lName,email 
+        	                        FROM users 
+        	                        WHERE id = '$instructor_id'", $connection) or die(mysql_error());
+
+        // add email address for other instructors
+		if($ins_[1]!=0 || $ins_[2]!=0 || $ins_[3]!=0 || $ins_[4]!=0 || $ins_[5]!=0) {
+			for($i=1;$i<6;$i++) {
+				$insEmail_ = mysql_query("SELECT
+												email
+											FROM
+												users
+											WHERE
+												id = '$ins_[$i]'
+											",$connection) or die ("Error: ".mysql_error());
+
+				if(mysql_num_rows($insEmail_) > 0) {
+					list($email_[$i]) = mysql_fetch_array($insEmail_);
+					$insEmail .= ", ".$email_[$i];
+
+				}
+			}
+		}
+
+		$getregistrants = mysql_query("SELECT
+											 uid
+										FROM
+											registration_list
+										WHERE
+											ws_id= '$id'
+										", $connection) or die(mysql_error());
+
+		if (mysql_num_rows($getUserInfo) == 1) 
+		{
+            //echo "Before getting information about Instructor";
+			list($fName, $lName, $email) = mysql_fetch_array($getUserInfo);
+		    $sentTo = "Email Recipients - $email";
+		    
+		    //echo "INSTRUCTOR email Id is------$email";
+			$message =  $fName . " " . $lName . ',<br>
+
+			
+Please find below the registration list as of ' . $currentdate . '.<br>
+Please feel free to use the checklist to mark attendance, adding any additional registrations to the bottom of the list. We require attendance to update faculty records accordingly for their retention/promotion portfolios. <br><br>'."\r\n". 
+
+'<br><b><font color="red">Remember that the list only reflects enrollment at the time this email is generated. Some may not enroll, they may simply show up. Even if there are no enrollments, it would be advisable to check the room to make sure someone did not show up.'."\r\n".'Please send attendance for this workshop to DK-Bagley1@wiu.edu or to CITR. Faculty only receive credit if attendance is recorded with CITR.</font></b><br>'."\r\n".
+
+
+'<br>Thank you.<br>'."\r\n". 
+'<br><hr><strong>Title of the workshop</strong>: '. htmlentities($title) . ' on <strong>'
+. date("m-d-y", strtotime($date)) .'</strong><br>'.
+
+' <br><strong>Location</strong>: '.$location . '<br><br><br>'."\r\n" ;
+
+			if (mysql_num_rows($getregistrants) >= 1) 
+			{
+				//echo "Looking for registrants";
+				while (list($registrantid) = mysql_fetch_array($getregistrants)) 
+				{
+					//echo ("Registrants Info");
+					$userresult = mysql_query("SELECT
+											fName,
+											lName,
+											email
+										FROM
+											users
+										WHERE
+											id = '$registrantid'
+										", $connection) or die(mysql_error());
+					list($userfirstname, $userlastname, $useremail) = mysql_fetch_array($userresult);
+					
+					if(!empty($useremail))
+					{
+					   $message .= '&#x25a2; '.$userfirstname . " "  . $userlastname . " " . $useremail .'<br>'."\r\n";
+					   //echo "Message Info is $message";
+					}
+				}
+                  //echo("Getting Out of loop for registrants");
+			} else $message = $message =  $fName . " " . $lName . ',<br>
+
+			
+<br>The following is the registration information received for your session.<br>'."\r\n". 
+'<br><hr><strong>Title of the workshop</strong>: '. htmlentities($title) . ' on <strong>'
+. date("m-d-y", strtotime($date)) .'</strong><br>'.
+
+' <br><strong>Location</strong>: '.$location . '<br><strong>Sorry, no registrations exist for this session.</strong>'."\r\n" ;
+
+
+//echo $insEmail. '<br>';
+ 
+			$message .=  "\r\n\r\n";
+
+			//echo "Message is $msg";
+		   
+			$header = 'From:CITR@wiu.edu' . "\r\n" .'CC:CITR@wiu.edu'.$insEmail. "\r\n" . 'MIME-Version: 1.0' . "\r\n" . 'Content-Type: text/html; charset=ISO-8859-1' . "\r\n";
+			//$header = 'From:CITR@wiu.edu' . "\r\n" .'CC:a-chirumamilla@wiu.edu' ."\r\n" . 'MIME-Version: 1.0' . "\r\n" . 'Content-Type: text/html; charset=ISO-8859-1' . "\r\n";
+
+			//echo "header info is $header";
+			}
+
+//$email1 = "a-chirumamilla@wiu.edu";
+//mail($email1, $subject, $message, $header);
+//echo "Subject is $subject"."<br>";
+//echo "Message is $message"."<br>";
+//echo "header info is $header"."<br>";
+$email1 = "r-runquist@wiu.edu"; 
+//echo "email ID is $email1"."<br>";
+//citr@wiu.edu
+echo $header. '<br>';
+echo $email .'<br>';
+mail($email, $subject, $message, $header);
+$insEmail='';
+	}
+
+
+}
+
+
+mysql_close();
+exit();
+?>

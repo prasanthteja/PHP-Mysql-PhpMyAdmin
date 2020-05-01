@@ -1,0 +1,167 @@
+				
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+	<head>
+		<title>Date--Center for Innovation in Teaching and Research</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<link href="http://www.wiu.edu/users/mifdo/styles/customAdmin.css" rel="stylesheet" type="text/css" media="screen" />
+		<link href="http://www.wiu.edu/citr/styles/form.css" rel="stylesheet" type="text/css" media="screen" />
+		
+		
+		
+		<script src="check.js" type="text/javascript" > </script>
+		<script src="AC_OETags.js" type="text/javascript" > </script>
+
+
+		<script src="calendar/calendar.js" type="text/javascript" > </script>
+		<link href="calendar/calendar.css" rel="stylesheet" type="text/css" />
+
+	</head>
+	<body>
+		<div id="wrap">
+			<div id="header">
+				<div id="pageTitle">
+					<h1>Workshops &amp; Programming</h1>
+					Date
+				</div>
+
+			</div>
+			<div id="main">
+				<div id="left">
+						<div class="nav">
+							<ul>
+								<li><a href="https://www.wiu.edu/users/mifdo/">Admin Home</a></li>
+							<li><a href="https://www.wiu.edu/users/mifdo/news/">News Admin</a></li>
+							<li><a href="https://www.wiu.edu/users/mifdo/faq/">F.A.Q. Admin</a></li>
+
+							<li><a href="https://www.wiu.edu/users/mifdo/faculty/">Faculty Directory Admin</a></li>
+							<li><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp">Workshops</a>
+</li>
+							<li><a href="https://www.wiu.edu/citr/travel/">Travel Award</a>
+</li>
+							<li><a href="https://www.wiu.edu/citr/newfaculty/">New Faculty Reg</a>
+</li>
+							<li><a href="https://www.wiu.edu/citr/resources/">Faculty Resources</a>
+
+</li>
+							<li>
+</li>
+							</ul>
+							</div>
+						<div class="nav">
+							<dl>
+		   <dt>Workshops</dt>
+			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=addWorkshop" class="nav">Add A Workshop</a></dd>
+
+			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=updateWorkshops" class="nav">Update a Workshop</a></dd>
+			<dt>Categories</dt>
+	        	<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=addCategory" class="nav">Add A Category</a></dd>
+				<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=updateCategories" class="nav">Update a Category</a></dd>
+		   <dt>User Management</dt>
+				  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=addUser" class="nav">Add A User</a></dd>
+
+		   	  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=updateUsers" class="nav">Update Users</a></dd>
+		   <dt>Archiving</dt>
+			   <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=addArchive" class="nav">Create Archive</a></dd>
+			   <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=listArchives" class="nav">List Archives</a></dd>
+			<dt>Personal Workshops</dt>
+				<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=showChoice" class="nav">My Workshops</a></dd>
+
+				<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=viewHistory" class="nav">My History</a></dd>
+				<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=showLetterDates" class="nav">Print a Confirmation Letter</a></dd>
+				<dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=selectdates" class="nav">Print Workshop Attenders</a></dd>
+			
+				
+		   <dt>Misc. Functions</dt>
+ 			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=stats">Statistics</a></dd>
+			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=collegeStats">Statistics By College</a></dd>
+
+			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=monthlyStats">Statistics By Month</a></dd>
+			  <dd><a href="http://www.wiu.edu/citr/workshops/">Back to All Workshops</a></dd>
+			  <dd><a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=logout" onclick="alert('NOTE: Due to one of the authentication methods used, you will need to close your browser completely in order to fully logout.');"class="nav">Logout</a></dd>
+           </dl>
+							</div>
+										</div>
+				<div id="right">
+
+					<div class="content">
+								
+		<div id="contentTop">	
+			<div class="searchBox">
+				<form name="search" id="search" method="post" action="https://www.wiu.edu/citr/workshops/index.sphp#Results">
+					<label for="criteria" style="display:none">Search:</label>
+					<input type="text" name="criteria" id="criteria" value=""/>
+					<input type="submit" name="Submit" id="Submit" value="Search"/> | <a href="https://www.wiu.edu/users/mifdo/workshops/index.sphp?action=searchWorkshops">Advanced Search</a>
+
+				</form>
+			</div>
+		</div>
+			<!-- <div style="background: #FFF; border: 1px solid #000; padding: 10px;">
+						<p>Please enter the dates from which you would like to search for workshops/programs that you
+attended.</p><p>Note: If you are experiencing problems with the calendar
+feature, merely type the beginning and ending dates manually, in the format
+YYYY-MM-DD where YYYY represents the four digit year, MM represents a two
+digit date (i.e., 01, 02), and DD represents the two digit day. Beginning
+and ending dates MUST be specified.</p>
+					</div> -->
+		<form name="selectdates" id="selectdates" method="post" action="print.sphp">
+			<fieldset><legend>Select Date Range</legend>
+	
+			<label for="stdate">Start Date:</label>
+				<table border="0" align="left" cellspacing="0"> <tr> <td>
+				<?php
+					//get class into the page
+					require_once('calendar/classes/tc_calendar.php');
+				
+					//instantiate class and set properties
+					$myCalendar = new tc_calendar("date5", true, false);
+				  	$myCalendar->setIcon("calendar/images/iconCalendar.gif");
+	                $myCalendar->setDate(date('d'), date('m'), date('Y'));
+				    $myCalendar->setPath("calendar/");
+				  	$myCalendar->setYearInterval(1922, 2100);
+				  	$myCalendar->dateAllow('2008-05-13', '2100-03-01');
+				  	 $myCalendar->setDateFormat('Y-m-d');
+				  	$myCalendar->zindex = 999;
+				
+					//output the calendar
+					$myCalendar->writeScript();	  
+				
+				?></td> </tr> </table>
+	  <br  /> <br  /> 
+	  
+	 
+			<label for="eventdate">End Date:</label>
+			<table border="0" align="left" cellspacing="0"><tr><td>
+			<?php
+				
+				//instantiate class and set properties
+				  $myCalendar = new tc_calendar("date6", true, false);
+				  $myCalendar->setIcon("calendar/images/iconCalendar.gif");
+				  $myCalendar->setDate(date('d'), date('m'), date('Y'));
+				  $myCalendar->setPath("calendar/");
+				  $myCalendar->setYearInterval(1922, 2100);
+				  $myCalendar->dateAllow('2008-05-13', '2100-03-01');
+				  $myCalendar->setDateFormat('Y-m-d');
+				
+				  //output the calendar
+				  $myCalendar->writeScript();	  
+			?></td></tr></table>
+			
+			 <br  /> <br  />
+			 <script language="JavaScript" type="text/javascript">
+				var frmvalidator = new Validator("selectdates");
+				frmvalidator.addValidation("date5","req" ,"Please enter the start date")
+				frmvalidator.addValidation("date6","req" ,"Please enter the end date");
+			</script>
+		            <p style="font-style:italic; color: #930" >&nbsp; (Y-M-D:&nbsp; E.G. 2010-01-11 )</p></td> 
+				<input type="submit" name="Submit" id="Submit" value="Print Preview" class="submitButton"/>
+			</fieldset>
+		</form>
+		
+					</div>
+				</div>
+				
+			</div>
+		</div>
+	</body>
+</html>

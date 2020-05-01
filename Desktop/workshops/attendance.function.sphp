@@ -1,0 +1,41 @@
+<?php
+
+require_once ('/home/mifdo/.php_admin_connect.sphp');
+
+$connection = dbConnect();
+mysql_select_db("workshops", $connection);
+
+/*
+ * Programmed by : Dheeraj Kumar Sambrani
+ * Resets the Attendance column of Registration_list table
+ * i.e it sets attendance column of registraion_list table to false whose date is not a passed one.
+ */
+
+//**********************************************************
+
+$currentdate = date("Y-m-d");
+$nextdate = date('Y-m-d', strtotime('+1 day', strtotime($currentdate))) . ' 00:00:00';
+$apps = mysql_query("SELECT `id`, `title`, `cat_id`, `date`, `startTime`, `endTime`, `location`, `instructor_id`
+					FROM workshops
+					WHERE DATE >= '$nextdate'", $connection) or die(mysql_error());
+
+if (mysql_num_rows($apps) > 0) {
+	
+
+	while (list($id, $title, $cat_id, $date, $startTime, $endTime, $location, $instructor_id) = mysql_fetch_array($apps)) {
+
+		$setWorkshopInfo = mysql_query("UPDATE 
+										registration_list
+									SET 
+										attended = 'false'
+									WHERE 
+										ws_id = '$id'
+									", $connection) or die(mysql_error());
+
+	}
+}
+
+
+mysql_close();
+exit();
+?>

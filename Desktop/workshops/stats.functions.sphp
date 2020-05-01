@@ -1,0 +1,43 @@
+<?php
+	
+	require_once('/home/mifdo/.php_admin_connect.sphp');
+
+	switch($_GET['action']) {
+
+		case "workshopsByCat":
+			return getWorkshopsByCat();
+	}
+	
+	function getWorkshopsByCat() {
+
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$getInfo = mysql_query("	SELECT
+									category,
+									COUNT(workshops.id)
+								FROM
+									categories INNER JOIN workshops
+								ON
+									categories.id = workshops.cat_id
+								GROUP BY
+									category
+								",$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getInfo) > 0) {
+			
+			$xml = "<cats>";
+			
+			while(list($cat,$count) = mysql_fetch_array($getInfo)) {
+				$xml .= "<category>
+							<name>$cat</name>
+							<count>$count</count>
+						</category>";
+			}
+			$xml .= "</cats>";
+			
+			echo $xml;
+		}
+	}
+
+?>

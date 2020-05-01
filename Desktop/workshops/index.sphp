@@ -1,0 +1,307 @@
+## #!/usr/local/bin/php548
+<?php
+//## #!/usr/local/bin/php549
+//phpinfo();
+//*******************************************************************
+//	Author:		Jared Dellitt
+//	Date:		9/11/2007
+//  Purpose:	Provide a workshop maintenance & registration system.
+//*******************************************************************		
+	/*include('/home/mifdo/https/includeCAS/casauth.inc');
+	require_once('/home/mifdo/include/php/framework/objects/secureadmin.class.php');
+	require_once('/home/mifdo/include/php/framework/objects/upload.class.php');
+	require_once('/home/mifdo/include/php/framework/objects/entityList.class.php');
+	require_once('/home/mifdo/include/php/utilities/utility.sphp');
+	require_once('/home/mifdo/.php_admin_connect.sphp');*/
+	//session_start();
+	   // $_SESSION["id"]=$_GET['id'];
+		//$_SESSION["action"]=$_GET['action'];
+	//$_SESSION["cat_id"]=$_GET['cat_id'];
+
+//echo 'id'.$_SESSION["id"]. ' action '. $_SESSION["action"];
+	
+	//include('/home/mifdo/https/includeCAS/casauth.inc'); 
+		//include('/www/CAS/phpcas/casauth.inc');
+
+	//echo 'id'.$_SESSION['id']. ' action '. $action. ' cat_id '. $cat_id;
+//echo 'id'.$_SESSION["id"]. ' action '. $_SESSION["action"];
+
+	//break;
+	
+
+	
+	include('/www/CAS/phpcas/casauth.inc');
+	require_once('/www/include/php/framework/objects/admin.class.php');
+	//require_once('/home/mifdo/include/php/framework/objects/admin.class.php');
+	//require_once('/home/mifdo/include/php/framework/objects/form.class.php');
+	require_once('/www/include/php/framework/objects/entityList.class.php');
+	require_once('/home/mifdo/.php_admin_connect.sphp');
+	require_once('user.functions.sphp');	
+	
+	$caslogin;
+	$_SESSION['test']= $caslogin; //the ecom from CAS is stored in ‘test’ session
+	
+	require("/home/mifdo/https-files/php_ldap_bind.inc");
+	$LDAP = ldap_connect("ldap.wiu.edu"); //ldap
+	$result = ldap_bind($LDAP,$BindDN,$BindPW);
+	$myemail=$_SESSION['test'] . '@wiu.edu'; //email format
+	$criteria = "(&(mail=$myemail)(objectclass=wiuEmployee))"; //select employees only.
+	//for systems like Interview Archive, Code Sharing, to give access to Students, change //$criteria = “mail=”.$myemail;
+	$searchResult = ldap_search($LDAP, "ou=People, dc=wiu, dc=edu", $criteria);
+	$numEntries = ldap_count_entries($LDAP, $searchResult);
+	$info = ldap_get_entries($LDAP, $searchResult);
+	if($numEntries>0)
+	{
+		$uid=$info[0]["uid"][0]; //ecom from ldap
+		$_SESSION['ecom']=$uid;
+		if( $_SESSION['ecom'] === "sg158" ||$_SESSION['ecom'] === "ac183" || $_SESSION['ecom'] === "nmn108" || $_SESSION['ecom'] === "murlr"|| $_SESSION['ecom'] === "kg113" || $_SESSION['ecom'] === "vd105" || $_SESSION['ecom'] === "scd104" || $_SESSION['ecom'] === "rjh132" || $_SESSION['ecom'] === "nt117"|| $_SESSION['ecom'] === "rrs131"||$_SESSION['ecom'] === "vstpn100") 
+			$_SESSION['ecom'] = 'murlr';//csc115 //'mfsmh';//'murlr'; //'dks102';//'mujah14';//Access to GA’s
+		else
+			$_SESSION['ecom'] = $_SESSION['ecom'];
+	}
+	else
+	{
+		logout(); //if ecom is not an employee, redirect to CITR Home page.
+	}
+	
+	
+	/*session_start();
+	
+	
+	if( $_SERVER['REMOTE_USER'] === "mrr114" || $_SERVER['REMOTE_USER'] === "vk106" )				
+			$_SESSION['ecom'] = 'msdkb1';			//   murlr
+		else
+			$_SESSION['ecom'] = $_SERVER['REMOTE_USER'];
+	if( $_SERVER['REMOTE_USER'] === "vk106")
+	$_SESSION['ecom'] = 'murlr'; 	*/ //commented by neehar for casifying
+	
+	
+	
+	/*if(empty($_SESSION['ecom'])) {
+		$_SESSION['ecom'] = $_SERVER['REMOTE_USER'];
+	}*/
+
+	/* JS Script which makes the extra wrap div to hide for cutom text shown */
+	$waitMessage = "
+				<div style=\"padding: 40px;\">
+				<h3 style=\"background-color:#000; color:#fff\"> &nbsp; Requested action is being processed. Please wait ... </h3>
+				</div>";
+	
+	if($_GET['action'] == "register") {
+		$_SESSION['workshop'] = $_GET['id'];
+	}
+
+	checkRole();
+	if(empty($_SESSION['role'])) {
+			$page = new adminPage('userConfig.conf');
+			$page->setTitle("Workshops");
+		if(!checkLogin()) {
+			$page->addStyleSheet('/reusable/css/form.css');
+			$page->addToContent(registrationFormNew()); 	//function changed by Nitika -- 26th August 2010
+			$page->Display();
+		}
+	}
+	else if($_SESSION['role'] === "user") {
+		
+		$page = new adminPage('userConfig.conf');
+		$page->setTitle("Workshops");
+		
+		if(empty($_POST['Submit']) || $_POST['Submit'] == "Register")
+		{
+			list($content,$title) = userContent();
+			$page->setTitle($title);
+			if($title == "Results")
+			{
+				list($status,$msg,$redirectTo) = $content;
+				$page->redirect($status,$msg,$redirectTo);
+			}
+			else
+				$page->addToContent($content);
+		}
+		else
+		{
+		   
+			if($_POST['Submit'] == "Get Programs"|| $_POST['Submit'] =="Invite") {
+				list($content,$title) = userProcess();
+				$page->setTitle($title);
+				$page->addToContent($content);
+			}
+			else {
+				$script = " <script>
+		        setTimeout(function(){ 
+			        var body= document.body.children;
+			        body[6].style.display = 'none');
+		         }, 300);
+				    </script>";
+
+				$page->content = $script;
+				$page->addToContent($waitMessage);
+				$page->Display();	
+				list($status,$msg,$redirectTo) = userProcess();
+				$page->redirect($status,$msg,$redirectTo);
+			}
+		}
+		$page->Display();			
+	}
+	elseif($_SESSION['role'] === "instructor") {
+		
+
+		require_once('instruct.functions.sphp');		
+		$page = new adminPage('instructConfig.conf');
+		$page->addJavaScript('check.js');		
+		$page->setTitle("Workshops");
+		
+		if(empty($_POST['Submit']))
+		{
+			list($content,$title) = instructContent();
+			$page->setTitle($title);
+			if($title == "Results")
+			{
+				list($status,$msg,$redirectTo) = $content;
+				$page->redirect($status,$msg,$redirectTo);
+			}
+			else
+				$page->addToContent($content);
+		}
+		else
+		{
+			if($_POST['Submit'] == "Get Programs"|| $_POST['Submit'] =="Invite") {
+				list($content,$title) = instructProcess();
+				$page->setTitle($title);
+				$page->addToContent($content);
+			}
+			else {
+				$script = " <script>
+			        setTimeout(function(){ 
+				        var body= document.body.children;
+				        body[6].style.display = 'none';
+			         }, 300);
+				    </script>";
+
+				$page->content = $script;
+				$page->addToContent($waitMessage);
+				$page->Display();	
+				list($status,$msg,$redirectTo) = instructProcess();
+				$page->redirect($status,$msg,$redirectTo);
+			}
+		}
+		$page->Display();			
+	}	
+	elseif($_SESSION['role'] === "admin"){
+
+		require_once('admin.functions.sphp');
+		require_once('archives.functions.sphp');
+		$page = new adminPage();
+		$page->setTitle("Workshops");
+
+		$page->addToContent(Printlink());
+		$page->addJavaScript('check.js');
+		$page->addJavaScript('AC_OETags.js');
+		//$page->addJavaScript('calendar/calendar.js');
+		// added by mahanand
+		//$page->addStyleSheet('/reusable/css/form.css');
+		//$page->addJavaScript('https://www.wiu.edu/reusable/js/calendar.js');
+		//
+		
+		$page->setSubNav(adminNav());
+		if(empty($_POST['Submit']))
+		{
+			list($content,$title) = adminContent();
+			$page->setTitle($title);
+			if($title == "Results")
+			{
+				list($status,$msg,$redirectTo) = $content;
+				$page->redirect($status,$msg,$redirectTo);
+			}
+			else {
+				if($_GET['action'] != "searchWorkshops")
+					$page->addToContent(searchHeader());
+				$page->addToContent($content);
+			}
+		}
+		else
+		{
+			if($_POST['Submit'] == "Search" || $_POST['Submit'] == "Get Programs"|| $_POST['Submit'] =="Invite" || $_POST['Submit'] == "View" || $_POST['Submit'] == "View By College" || $_POST['Submit'] == "View By Month") {
+				list($content,$title) = adminProcess();
+				$page->setTitle($title);
+				$page->addToContent($content);
+			}
+			else {
+				$script = " <script>
+			        setTimeout(function(){
+				        var body= document.body.children;
+				        body[7].style.display = 'none';
+			         }, 300);
+				    </script>";
+				$page->content = $script;
+				$page->addToContent($waitMessage);
+				$page->Display();
+				list($status,$msg,$redirectTo) = adminProcess();
+				$page->redirect($status,$msg,$redirectTo);
+			}
+		}
+		$page->Display();			
+	}
+
+	
+	function checkLogin() {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$auth_user = $_SESSION['ecom'];
+		
+		$getRole = mysql_query("SELECT id,role FROM users WHERE ecom = '$auth_user'",
+								$connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getRole) > 0) {
+			list($uid,$role) = mysql_fetch_array($getRole);
+			$_SESSION['uid'] = $uid;
+			$_SESSION['role'] = $role;
+			mysql_close();
+			return true;
+		}
+		else {
+			mysql_close();		
+			return false;
+		}				
+	}
+	function checkRole() {
+	
+		$connection = dbConnect();
+		mysql_select_db("workshops");
+		
+		$auth_user = $_SESSION['ecom'];
+		
+		$getRole = mysql_query("SELECT id,role FROM users WHERE ecom = '$auth_user'",
+							   $connection) or die (mysql_error());
+								
+		if(mysql_num_rows($getRole) > 0) {
+			list($uid,$role) = mysql_fetch_array($getRole);
+			$_SESSION['uid'] = $uid;
+			$_SESSION['role'] = $role;
+			mysql_close();
+		}
+		else {
+			mysql_close();		
+		}				
+	}
+		
+	function searchHeader() {
+	
+		return '		
+		<div id="contentTop">	
+			<div class="searchBox">
+				<form name="search" id="search" method="post" action="/citr/workshops/index.sphp#Results">
+					<label for="criteria" style="display:none">Search:</label>
+                    <INPUT TYPE="button" onClick="window.print()">
+                    <input type="text" name="criteria" id="criteria" value=""/>
+					<input type="submit" name="Submit" id="Submit" value="Search"/> | <a href="?action=searchWorkshops">Advanced Search</a>
+				</form>
+			</div>
+		</div>
+			';
+	}
+	
+	
+?>
